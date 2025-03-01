@@ -17,6 +17,17 @@ const INCOME_CATEGORIES = [
   "Bán Hàng", "Hoàn Tiền", "Đầu Tư Sinh Lời", "Bảo Hiểm Chi Trả", "Trợ Cấp", "Thu Nhập Khác",
 ];
 
+const CATEGORIES = [
+  "Tiền Lương", "Tiền Thưởng", "Lãi Ngân Hàng", "Được Tặng",
+  "Bán Hàng", "Hoàn Tiền", "Đầu Tư Sinh Lời", "Bảo Hiểm Chi Trả", 
+  "Trợ Cấp", "Thu Nhập Khác", "Ăn Uống", "Mua Sắm", "Giải Trí",
+  "Đi Lại", "Học Tập", "Sức Khỏe", "Nhà Cửa", "Hóa Đơn", 
+  "Nợ & Trả Góp", "Gửi Tiết Kiệm", "Bảo Hiểm", "Đầu Tư", 
+  "Từ Thiện", "Chi Tiêu Gia Đình", "Dịch Vụ Đăng Ký", "Sửa Xe", 
+  "Tiệc Tùng", "Chi Phí Công Việc", "Khoản Chi Khác"
+];
+
+
 export default function Page() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
@@ -24,22 +35,23 @@ export default function Page() {
   const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
 
   // Fetch dữ liệu từ Supabase
- // Fetch dữ liệu từ Supabase
-useEffect(() => {
-  async function fetchData() {
-    const { data, error } = await supabase
-      .from("transactions")
-      .select("*")
-      .order("created_at", { ascending: false }); // Sắp xếp theo thời gian giảm dần
-
-    if (error) {
-      console.error("Lỗi khi lấy dữ liệu từ Supabase:", error);
-    } else {
-      setExpenses(data || []);
+  useEffect(() => {
+    async function fetchData() {
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .order("id", { ascending: false }); // Lấy dữ liệu mới nhất trước
+  
+      if (error) {
+        console.error("Lỗi khi lấy dữ liệu từ Supabase:", error);
+      } else {
+        setExpenses(data || []);
+      }
     }
-  }
-  fetchData();
-}, []);
+  
+    fetchData();
+  }, []);
+  
 
 
   const { submit, isLoading } = useObject({
@@ -47,20 +59,38 @@ useEffect(() => {
     schema: expenseSchema,
     async onFinish({ object }) {
       if (object?.expense) {
-        const { data, error } = await supabase.from("transactions").select("*").order("id", { ascending: false }).limit(1);
+        // Đợi 300ms để Supabase kịp cập nhật dữ liệu
+        await new Promise((resolve) => setTimeout(resolve, 300));
+  
+        // Lấy dữ liệu mới nhất từ Supabase theo thời gian tạo
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("*")
+          .order("id", { ascending: false })
+          .limit(1); // Chỉ lấy 1 bản ghi mới nhất
+  
         if (error) {
           console.error("Lỗi khi lấy dữ liệu sau khi thêm:", error);
         } else if (data.length > 0) {
-          setExpenses((prev) => [data[0], ...prev]);
+          setExpenses((prev) => [data[0], ...prev]); // Thêm record mới vào đầu danh sách
         }
       }
     },
   });
+  
+  
 
   const handleEdit = (expense: Expense) => {
     setSelectedExpense(expense);
     setEditModalOpen(true);
   };
+  
+  const handleUpdateExpense = (updatedExpense: Expense) => {
+    setExpenses((prev) =>
+      prev.map((exp) => (exp.id === updatedExpense.id ? updatedExpense : exp))
+    );
+  };
+  
 
   const handleDelete = async () => {
     if (selectedExpense) {
@@ -91,7 +121,7 @@ useEffect(() => {
         />
         <button
           type="submit"
-          className="px-4 py-2 text-white bg-blue-500 rounded-md disabled:bg-blue-200 whitespace-nowrap"
+          className="px-4 py-2 text-white bg-blue-500 rounded-md disabled:bg-blue-200 whitespace-nowrap hover:bg-blue-600 transition"
           disabled={isLoading}
         >
           Ghi lại
@@ -100,8 +130,13 @@ useEffect(() => {
 
       <ExpenseTable expenses={expenses} onEdit={handleEdit} onDelete={(exp) => { setSelectedExpense(exp); setDeleteModalOpen(true); }} />
       {isEditModalOpen && selectedExpense && (
-        <EditExpenseModal expense={selectedExpense} onClose={() => setEditModalOpen(false)} />
-      )}
+  <EditExpenseModal
+    expense={selectedExpense}
+    onClose={() => setEditModalOpen(false)}
+    onUpdate={handleUpdateExpense}
+  />
+)}
+      
       {isDeleteModalOpen && selectedExpense && (
         <DeleteExpenseModal onDelete={handleDelete} onClose={() => setDeleteModalOpen(false)} />
       )}
@@ -132,8 +167,8 @@ const ExpenseTable = ({ expenses, onEdit, onDelete }: { expenses: Expense[]; onE
           <td className="border border-gray-300 px-4 py-2">{expense.category}</td>
           <td className="border border-gray-300 px-4 py-2">{expense.details}</td>
           <td className="border border-gray-300 px-4 py-2">
-            <button className="px-2 py-1 bg-orange-500 text-white rounded" onClick={() => onEdit(expense)}>Sửa</button>
-            <button className="ml-2 px-2 py-1 bg-red-500 text-white rounded" onClick={() => onDelete(expense)}>Xóa</button>
+            <button className="px-2 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 transition" onClick={() => onEdit(expense)}>Sửa</button>
+            <button className="ml-2 px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition" onClick={() => onDelete(expense)}>Xóa</button>
           </td>
         </tr>
       ))}
@@ -141,13 +176,33 @@ const ExpenseTable = ({ expenses, onEdit, onDelete }: { expenses: Expense[]; onE
   </table>
 );
 
-function EditExpenseModal({ expense, onClose }: { expense: Expense; onClose: () => void }) {
+function EditExpenseModal({ expense, onClose, onUpdate }: { expense: Expense; onClose: () => void; onUpdate: (updatedExpense: Expense) => void }) {
   const [amount, setAmount] = useState(expense.amount);
   const [category, setCategory] = useState(expense.category);
   const [details, setDetails] = useState(expense.details);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    
+    const { error } = await supabase
+      .from("transactions")
+      .update({ amount, category, details })
+      .eq("id", expense.id);
+
+    if (error) {
+      console.error("Lỗi khi cập nhật dữ liệu:", error);
+    } else {
+      onUpdate({ ...expense, amount, category, details }); // Cập nhật danh sách
+      onClose();
+    }
+    
+    setIsSaving(false);
+  };
+
   return (
-    <Dialog open onClose={onClose} className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white p-6 rounded-lg shadow-md w-96">
+    <Dialog open onClose={onClose} className="fixed inset-0 flex items-center justify-center bg-opacity-30 backdrop-blur-md">
+      <div className="bg-white p-6 rounded-lg shadow-lg w-96">
         <h2 className="text-xl font-bold mb-4">Chỉnh sửa khoản chi</h2>
 
         <label className="block mb-2">💰 Số tiền</label>
@@ -156,16 +211,16 @@ function EditExpenseModal({ expense, onClose }: { expense: Expense; onClose: () 
           className="w-full p-2 border rounded focus:ring focus:ring-blue-300"
           value={amount}
           onChange={(e) => setAmount(Number(e.target.value))}
-          />
+        />
         <p className="text-sm text-gray-500">Đơn vị: VND</p>
 
-        <label className="block mt-4 mb-2">📂 Danh mục</label>
+        <label className="block mt-4 mb-2 disable">📂 Danh mục</label>
         <select
           className="w-full p-2 border rounded focus:ring focus:ring-blue-300"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         >
-          {INCOME_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+          {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
         </select>
 
         <label className="block mt-4 mb-2">📝 Chi tiết</label>
@@ -177,27 +232,36 @@ function EditExpenseModal({ expense, onClose }: { expense: Expense; onClose: () 
         />
 
         <div className="flex justify-end mt-4">
-          <button className="px-4 py-2 bg-blue-600 text-white rounded mr-2" onClick={onClose}>Lưu</button>
-          <button className="px-4 py-2 bg-gray-400 text-white rounded" onClick={onClose}>Hủy</button>
+          <button
+            className="px-4 py-2 bg-blue-600 text-white rounded mr-2 hover:bg-blue-700 transition disabled:bg-gray-400"
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? "Đang lưu..." : "Lưu"}
+          </button>
+          <button className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500 transition" onClick={onClose}>
+            Hủy
+          </button>
         </div>
       </div>
     </Dialog>
   );
 }
 
+
 function DeleteExpenseModal({ onDelete, onClose }: { onDelete: () => void; onClose: () => void }) {
   return (
-    <Dialog open onClose={onClose} className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-80">
-      <div className="bg-white p-6 rounded-lg shadow-md w-96 text-center">
+    <Dialog open onClose={onClose} className="fixed inset-0 flex items-center justify-center bg-opacity-100 backdrop-blur-md">
+      <div className="bg-white p-6 rounded-lg shadow-lg w-96 text-center">
         <h2 className="text-xl font-bold">Xác nhận xóa</h2>
-        <p className="mt-2">Bạn có chắc chắn muốn xóa khoản chi này?</p>
+        <p className="mt-2 text-gray-600">Bạn có chắc chắn muốn xóa khoản chi này?</p>
         <div className="flex justify-center mt-4">
-          <button className="px-4 py-2 bg-red-600 text-white rounded mr-2" onClick={onDelete}>Xóa</button>
-          <button className="px-4 py-2 bg-gray-400 text-white rounded" onClick={onClose}>Hủy</button>
+          <button className="px-4 py-2 bg-red-600 text-white rounded mr-2 hover:bg-red-700 transition" onClick={onDelete}>Xóa</button>
+          <button className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500 transition" onClick={onClose}>Hủy</button>
         </div>
       </div>
     </Dialog>
-  );
+  );  
 }
 
 
