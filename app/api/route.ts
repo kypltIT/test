@@ -36,30 +36,44 @@ export async function POST(req: Request) {
     schema: expenseSchema,
     async onFinish({ object }) {
       try {
-
-// Kiểm tra nếu object hoặc object.expense không tồn tại
-if (!object || !object.expense) {
-  console.error("Dữ liệu object không hợp lệ hoặc thiếu expense:", object);
-  return;
-}
-
+        if (!object || !object.expense) {
+          console.error("Dữ liệu object không hợp lệ hoặc thiếu expense:", object);
+          return;
+        }
+    
         // Lấy dữ liệu từ object trả về
-        const name = object.expense.details; // Trường name lấy từ details
-        const amount = object.expense.amount; // Trường amount giữ nguyên
-        const category = object.expense.category; // Trường category giữ nguyên
-
-        // Kiểm tra nếu dữ liệu hợp lệ trước khi insert
-        if (!name || !amount || !category) {
+        const details = object.expense.details;
+        const amount = object.expense.amount;
+        const category = object.expense.category;
+        const created_at = object.expense.created_at;
+    
+        if (!details || !amount || !category) {
           console.error("Dữ liệu không hợp lệ, bỏ qua insert vào Supabase.");
           return;
         }
-
-        // Insert vào Supabase
+    
+        // Lấy ID lớn nhất từ Supabase
+        const { data: maxIdData, error: maxIdError } = await supabase
+          .from("transactions")
+          .select("id")
+          .order("id", { ascending: false }) // Lấy ID cao nhất
+          .limit(1);
+    
+        if (maxIdError) {
+          console.error("Lỗi khi lấy ID lớn nhất từ Supabase:", maxIdError);
+          return;
+        }
+    
+        // Xác định ID mới
+        const lastId = maxIdData.length > 0 ? maxIdData[0].id : 0;
+        const newId = lastId + 1;
+    
+        // Insert vào Supabase với ID mới
         const { data, error } = await supabase
           .from("transactions")
-          .insert([{ name, amount, category }])
+          .insert([{ id: newId, details, amount, category, created_at }])
           .select();
-
+    
         if (error) {
           console.error("Lỗi khi lưu vào Supabase:", error);
         } else {
@@ -68,7 +82,8 @@ if (!object || !object.expense) {
       } catch (err) {
         console.error("Lỗi trong quá trình xử lý:", err);
       }
-    },
+    }
+    
   });
 
   return result.toTextStreamResponse();

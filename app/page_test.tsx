@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { experimental_useObject as useObject } from "@ai-sdk/react";
-import { Expense, expenseSchema } from "./api/schema";
-import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { Dialog } from "@headlessui/react";
+import { experimental_useObject as useObject } from '@ai-sdk/react';
+import { Expense, expenseSchema, PartialExpense } from './api/schema';
+import { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import { Dialog } from '@headlessui/react';
 
 // Kết nối đến Supabase
 const supabase = createClient(
@@ -14,7 +14,7 @@ const supabase = createClient(
 
 const INCOME_CATEGORIES = [
   "Tiền Lương", "Tiền Thưởng", "Lãi Ngân Hàng", "Được Tặng",
-  "Bán Hàng", "Hoàn Tiền", "Đầu Tư Sinh Lời", "Bảo Hiểm Chi Trả", "Trợ Cấp", "Thu Nhập Khác",
+  "Bán Hàng", "Hoàn Tiền", "Đầu Tư Sinh Lời", "Bảo Hiểm Chi Trả", "Trợ Cấp", "Thu Nhập Khác"
 ];
 
 export default function Page() {
@@ -23,39 +23,29 @@ export default function Page() {
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setDeleteModalOpen] = useState(false);
 
-  // Fetch dữ liệu từ Supabase
- // Fetch dữ liệu từ Supabase
-useEffect(() => {
-  async function fetchData() {
-    const { data, error } = await supabase
-      .from("transactions")
-      .select("*")
-      .order("created_at", { ascending: false }); // Sắp xếp theo thời gian giảm dần
-
-    if (error) {
-      console.error("Lỗi khi lấy dữ liệu từ Supabase:", error);
-    } else {
-      setExpenses(data || []);
+  useEffect(() => {
+    async function fetchData() {
+      const { data, error } = await supabase.from("transactions").select("*");
+      if (error) {
+        console.error("Lỗi khi lấy dữ liệu từ Supabase:", error);
+      } else {
+        setExpenses(data || []);
+      }
     }
-  }
-  fetchData();
-}, []);
-
+    fetchData();
+  }, []);
 
   const { submit, isLoading } = useObject({
-    api: "/api",
+    api: '/api',
     schema: expenseSchema,
-    async onFinish({ object }) {
-      if (object?.expense) {
-        const { data, error } = await supabase.from("transactions").select("*").order("id", { ascending: false }).limit(1);
-        if (error) {
-          console.error("Lỗi khi lấy dữ liệu sau khi thêm:", error);
-        } else if (data.length > 0) {
-          setExpenses((prev) => [data[0], ...prev]);
-        }
+    onFinish({ object }) {
+      if (object != null) {
+        setExpenses(prev => [object.expense, ...prev,]);
       }
     },
   });
+
+  
 
   const handleEdit = (expense: Expense) => {
     setSelectedExpense(expense);
@@ -64,8 +54,8 @@ useEffect(() => {
 
   const handleDelete = async () => {
     if (selectedExpense) {
-      await supabase.from("transactions").delete().match({ id: selectedExpense.id });
-      setExpenses((prev) => prev.filter((exp) => exp.id !== selectedExpense.id));
+      await supabase.from('transactions').delete().match({ id: selectedExpense.id });
+      setExpenses(prev => prev.filter(exp => exp.id !== selectedExpense.id));
       setDeleteModalOpen(false);
     }
   };
@@ -74,7 +64,7 @@ useEffect(() => {
     <div className="flex flex-col items-center min-h-screen p-6 bg-gray-100 dark:bg-gray-900">
       <form
         className="flex items-center w-full max-w-md"
-        onSubmit={(e) => {
+        onSubmit={e => {
           e.preventDefault();
           const input = e.currentTarget.expense as HTMLInputElement;
           if (input.value.trim()) {
@@ -113,6 +103,7 @@ const ExpenseTable = ({ expenses, onEdit, onDelete }: { expenses: Expense[]; onE
   <table className="w-full max-w-4xl mt-8 border border-gray-300 shadow-md">
     <thead>
       <tr className="bg-blue-500 text-white text-center">
+        <th className="border border-gray-300 px-4 py-2">ID</th>
         <th className="border border-gray-300 px-4 py-2">📅 Thời gian</th>
         <th className="border border-gray-300 px-4 py-2">💰 Số tiền</th>
         <th className="border border-gray-300 px-4 py-2">📂 Danh mục</th>
@@ -121,14 +112,20 @@ const ExpenseTable = ({ expenses, onEdit, onDelete }: { expenses: Expense[]; onE
       </tr>
     </thead>
     <tbody className="bg-white dark:bg-gray-800">
-      {expenses.map((expense) => (
+      {expenses.map(expense => (
         <tr key={expense.id} className="hover:bg-gray-100 dark:hover:bg-gray-700 transition text-center">
-          <td className="border border-gray-300 px-4 py-2">
-            {new Date(expense.created_at).toLocaleDateString("vi-VN", { year: "numeric", month: "2-digit", day: "2-digit" })}
-          </td>
-          <td className={`border border-gray-300 px-4 py-2 ${INCOME_CATEGORIES.includes(expense.category) ? "text-green-500" : "text-red-500"}`}>
-            {expense.amount.toLocaleString("vi-VN")} VND
-          </td>
+                    <td className="border border-gray-300 px-4 py-2">{expense.id}</td>
+          <td className="border border-gray-300 px-4 py-2">{new Date(expense.created_at).toLocaleDateString("vi-VN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).replace(",", "")}</td>
+<td 
+  className={`border border-gray-300 px-4 py-2 
+    ${INCOME_CATEGORIES.includes(expense.category) ? "text-green-500" : "text-red-500"}`}
+>
+  {expense.amount.toLocaleString("vi-VN")} VND
+</td>
           <td className="border border-gray-300 px-4 py-2">{expense.category}</td>
           <td className="border border-gray-300 px-4 py-2">{expense.details}</td>
           <td className="border border-gray-300 px-4 py-2">
@@ -199,5 +196,3 @@ function DeleteExpenseModal({ onDelete, onClose }: { onDelete: () => void; onClo
     </Dialog>
   );
 }
-
-
